@@ -15,7 +15,7 @@ try:
     os.mkdir(dataDir)
 except BaseException:
     pass
-
+ 
 experiment1 = False  # False代表末端运动
 
 stopQue = mp.Queue()
@@ -47,10 +47,16 @@ root.protocol("WM_DELETE_WINDOW", on_closing)
 root.mainloop()
 
 process2.join(timeout=1)
+# 调用 process2.join(timeout=1)，表示主进程将等待 process2 结束，最多等待 1 秒。
+# 如果 process2 在 1 秒内结束，主进程将继续执行。如果超时，主进程将继续执行而不等待 process2。
 time.sleep(0.1)
+# 暂停主进程 0.1 秒。这通常用于确保某些操作之间有足够的时间间隔。
 process2.terminate()
+# 强制终止 process2 进程。
+# 这一操作在 process2 仍在运行时很有用，确保进程被正确终止。
 if experiment1 is False:
     process1.join()
+    # process1.join() 等待 process1 结束。
     time.sleep(0.1)
 
 print(strTime)

@@ -99,6 +99,7 @@ def rpy2rot_vec(rpy):
     r = Rt.from_euler('xyz', rpy)
     rot_vec = r.as_rotvec()
     return rot_vec
+    # 欧拉角转换成旋转向量
 
 
 def dealForceCustomImpedance(Fxe, Fs, dvk, vk, x, timeLast, m, b, k):
@@ -109,9 +110,10 @@ def dealForceCustomImpedance(Fxe, Fs, dvk, vk, x, timeLast, m, b, k):
     if dt > 0.5:
         print("RockControlUsingFinger dt =", dt)
         dt = 0.5
-    dvkPlus = ((FPlusDF - b * vk - k * x) / m)
+    dvkPlus = ((FPlusDF - b * vk - k * x) / m) # 加速度
     vkPlus = dt * (dvk + dvkPlus) / 2 + vk
     return dvkPlus, vkPlus, currentTime, dt
+# 自定义阻抗控制中的力反馈。这是一个经典的阻抗控制模型，通常用于机器人控制等领域。阻抗控制通过调节虚拟质量、阻尼和刚度参数，使得系统对外部力的响应类似于一个弹簧-阻尼-质量系统。
 
 
 def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_points_spline, finger_points,
@@ -119,6 +121,7 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
                       stopQue=mp.Queue,
                       ImpedanceControl=False, ImpedanceControl3=False, ):
     ForceReceive = FingerForceReceiveQue.get(timeout=10)
+    # 通过将其定义为一个多进程队列，可以确保数据的安全传递和同步访问，避免多个进程同时访问数据时出现竞争条件
 
     FingerForceRecord = np.zeros((0, 6))
     SGVelRecord = np.zeros((0, 6))
@@ -133,10 +136,14 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
     ########### ControlProcess ########
     robot = RobotClient()
     tcp = rpy2rot_vec((-np.pi, 0, 0))
+    # [-3.14159265  0.          0.        ]
+
     now_pose = robot.ReadMachinePosition()[0:3]
     now_pose[2] = now_pose[2] + 0.1
 
     robot.Move(now_pose[0:3], tcp)
+    # 移动到哪个位置
+    # tcp 移动时的转角
 
     # -0.016139876756485903, -0.8102090933335253, 0.3722249608780756
     Q_joint = [1.6538190841674805,
@@ -145,12 +152,21 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
                4.046006842250488,
                4.710605621337891,
                2.4786343574523926]
+    # 方法将这些目标位置或角度应用于机器人的相应关节，从而控制机器人的整体姿态和位置。
+    # 1. 基座旋转（Base rotation） - 控制机器人基座的旋转。
+    # 2. 肩部倾斜（Shoulder tilt） - 控制机器人的“肩部”部分的倾斜。
+    # 3. 肘部旋转（Elbow rotation） - 控制机器人的“肘部”部分的旋转。
+    # 4. 腕部旋转（Wrist rotation） - 控制机器人的“腕部”部分的旋转。
+    # 5. 腕部倾斜（Wrist tilt） - 控制机器人腕部的倾斜。
+    # 6. 腕部偏转（Wrist swivel） - 控制机器人腕部的偏转。
+
     robot.moveJoint(Q_joint)
     init_pose = robot.ReadMachinePosition()[0:3]
     init_pose[0] = init_pose[0]
     init_pose[1] = init_pose[1]
 
     robot.Move(init_pose, tcp)
+    # 是否会有动作还取决于 tcp 参数，即目标姿态或工具中心点方向。如果 tcp 指定的方向与机器人当前的末端执行器方向不同，那么机器人可能会进行旋转或调整姿态以匹配新的方向指示，即使它的位置坐标没有变化。
     init_pose[2] = init_pose[2] - 0.1 - 0.003
     # #
     robot.Move(init_pose, tcp)
@@ -158,10 +174,12 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
 
     robot.Move(init_pose, tcp)
 
-
     time.sleep(1)
     ForceReceive = FingerForceReceiveQue.get(timeout=0.1)
-    print(ForceReceive)
+    # mp.Queue 队列是多进程中的队列，用于在不同的进程或线程之间传递数据。
+    # 在这种情况下，它用于从 FingerForceReceiveQue 队列中获取数据，如果队列为空，则会阻塞等待数据。
+    # 如果队列中没有数据，则会抛出 queue.Empty 异常。
+    print("ForceReceive", ForceReceive)
     offset_y = abs(ForceReceive[7]) * 3.5
 
     tcp = rpy2rot_vec((-np.pi, 0, np.arctan(offset_y / 0.085)))
@@ -173,19 +191,28 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
     RecordControlTime = np.zeros(0)
 
     x1 = np.linspace(0, 0.09, 10)[::-1]
+    # [::-1] 是一个切片操作符，具体解释如下：
+    # : 表示从头到尾的切片。
+    # # : 表示默认的步长（即 1）。
+    # # -1 表示步长为 -1，即从后向前逐步取值。
 
     y = np.ones_like(x1) * (offset_y)
     Finger_tail_end_array = np.array([x1, y]).T
+    # 将 x1 和 y 的值转换为一个二维数组，其中 x1 是行，y 是列。
+
     FingerTailMachinePosition = np.zeros((0, 3))
+    # array([], shape=(0, 3), dtype=float64)
     FingerTailArucoPose = np.zeros((0, 3))
     TcpForceArray = np.zeros((0, 6))
     Count = 0
 
     pose = robot.ReadMachinePosition()
+    # 读取机器人的当前位置
 
     InitPosition = pose[0:3]
     MachinePosition = robot.ReadMachinePosition()[0:3] - InitPosition
-    print(MachinePosition)
+    
+    print('MachinePosition', MachinePosition)
     BTime = time.time()
     path_begin = True
     theta_array=[]
@@ -194,8 +221,10 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
         timeLast[m] = time.time()
     first_loop = True
     while stopQue.qsize() is 0:
+        #  队列的大小为 0 
         try:
             ForceReceive = FingerForceReceiveQue.get(timeout=0.1)
+            # 如果队列为空，它会等待一段时间（这里是 0.1 秒）直到有数据可用。
             # print("FingerForceReceiveQue:",FingerForceReceiveQue.qsize())
         except queue.Empty:
             print("FingerForceReceiveQue timeout!")
@@ -208,6 +237,7 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
         theta = rpy[-1]
 
         ArucoPose = ForceReceive[6:]
+        # ForceReceive FingerForceReceiveQue获得力 and 二维码姿态
         MachinePosition = pose[0:3]
         Position = MachinePosition - InitPosition
         print(ArucoPose[0:2])
@@ -218,6 +248,10 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
         FingerForce[1] = -FingerForce[1]
         FingerForce[0:2] = np.array([[np.cos(theta), -np.sin(theta)],
                                      [np.sin(theta), np.cos(theta)]]) @ FingerForce[0:2]
+        # 对两个向量 ArucoPose 和 FingerForce 进行变换和旋转操作：
+        # 1. 对 ArucoPose 进行变换和旋转操作，使其在机器人的坐标系下表示。(参考)
+        # 2. 对 FingerForce 进行变换和旋转操作，使其在机器人的坐标系下表示。（参考）
+
         # print(FingerForce)
         # FingerForce = np.zeros(6)
         if ImpedanceControl3 is True:

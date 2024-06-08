@@ -25,14 +25,17 @@ def GetFingerForceProcess(dataDir, InitTime, FingerForceReceiveQue=mp.Queue(),
     for i in range(100):
         try:
             return_ = self.getForce()
+            # return yPredict, dp / 1000,img
             if return_ is not None:
                 FingerForceInit[i, :], _, img = return_
         except BaseException:
             continue
     photo_array = []
     FingerInitMean = np.mean(FingerForceInit[:, :], axis=0)
+    #  x y  基于z轴 均值力
 
     while stopQue.qsize() is 0:
+        # mp.Queue()
         try:
             # time.sleep(0.01)
             OriginForce, ArucoPose, img = self.getForce()
