@@ -8,8 +8,8 @@
 @Description:
 """
 import numpy as np
-from ControlCode.URRtde import URControl as UR
-# from URRtde import URControl as UR
+# from ControlCode_Use_UR_Rewrite_sin_rotation.URRtde import URControl as UR
+from URRtde import URControl as UR
 import time
 import queue
 import math

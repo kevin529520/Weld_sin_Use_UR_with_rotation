@@ -9,6 +9,6 @@ vision:
   camera_dist: [ 0.1058497356483027 ,-0.1488874492570700 ,0.0000000000000000 ,0.0000000000000000 ,-0.8698561798572152]
   # marker_length: 0.012
   # marker_length: 0.0562
-  marker_length: 0.006
+  marker_length: 0.005
 
   aruco_dict: '4X4_100'

@@ -2,9 +2,13 @@
 两条样条曲线且无偏差的解析方程
 '''
 from scipy.interpolate import interp1d
+from scipy.interpolate import BSpline
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+
+# from scipy.interpolate import CubicSpline
+
 from tinyspline import *
 
 np.random.seed(42587)
@@ -76,10 +80,22 @@ def get_curl_path():
     #     0.98, 1.02, interpolation_number)
 
     cloud_points_spline = BSpline.interpolate_cubic_natural(path_point.tolist(), 2)
+    # cloud_points_spline = CubicSpline(new_x_path, new_y_path, bc_type='natural')
+
+
     cloud_points_sample = cloud_points_spline.sample(9900)
+    # x_samples = np.linspace(new_x_path.min(), new_x_path.max(), 9900)
+    # y_samples = cloud_points_spline(x_samples)
+
+
     cloud_points = np.zeros((len(cloud_points_sample) // 2, 2))
     cloud_points[:, 0] = cloud_points_sample[0::2]
     cloud_points[:, 1] = cloud_points_sample[1::2]
+    
+    # cloud_points = np.zeros((len(x_samples), 2))
+    # cloud_points[:, 0] = x_samples
+    # cloud_points[:, 1] = y_samples
+
 
     gun_path_spline = cloud_points_spline
     gun_points = cloud_points.copy()

@@ -7,7 +7,7 @@ import yaml
 import rtde_control
 import rtde_io
 import rtde_receive
-import FTReading
+# import FTReading
 
 
 
@@ -21,3 +21,10 @@ class URControl:
 
     def get_robot(self):
         return self
+
+# class RobotClient(object):
+#     def __init__(self):
+#         self.robot = URControl().get_robot()
+
+# if __name__ == "__main__":
+#     self = RobotClient()

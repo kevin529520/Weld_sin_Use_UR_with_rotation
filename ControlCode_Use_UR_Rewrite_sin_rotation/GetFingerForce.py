@@ -26,7 +26,7 @@ class detector(object):
         # dir_path = os.path.dirname(os.path.realpath(__file__))
 # config_path = os.path.join(dir_path, 'controller_config.yaml')
 
-        self.config = yaml.load(open('./controller_config.yaml'), Loader=yaml.FullLoader)
+        self.config = yaml.load(open('./ControlCode_Use_UR_Rewrite_sin_rotation/controller_config.yaml'), Loader=yaml.FullLoader)
         # self.config = yaml.load('./controller_config.yaml', Loader=yaml.FullLoader)
         
         self.config = self.config['vision']
@@ -55,10 +55,10 @@ class detector(object):
         if current_ids is None:
             return None
 
-        rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(current_corners,
-                                                          self.marker_length,
-                                                          self.camera_matrix,
-                                                          self.camera_dist)
+        rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(current_corners, 
+                                                          self.marker_length, 
+                                                          self.camera_matrix, 
+                                                          self.camera_dist) 
         
         rr = R.from_rotvec(rvecs[0])
         # 旋转矩阵
@@ -70,8 +70,8 @@ class detector(object):
         rpy[0] = rpy[0] + 360 * (rpy[0] < 0)
 
         return np.concatenate((tvecs[0][0] * 1000, rpy))
-
-
+        # 初始 Final Vector: [5.54131605e-01 1.43942161e-01 2.61879730e+01 1.80826534e+02 3.54908876e-01 3.58560626e+02]
+        # 形变后 Final Vector: [ -1.91192365   0.54926175  25.51828007 169.97963501  -7.71564783 1.90439425]
 class GetFingerForce(object):
     def __init__(self, dataDir):
         self.dataDir = dataDir
@@ -110,11 +110,12 @@ class GetFingerForce(object):
             while p is None:
                 ret, img = self.cap.read()
                 p = self.detect.detect(img)
-                # 平移分量 + 旋转分量
+                # 平移分量 + 旋转分量（欧拉角）
             p[3] = p[3] + 360 * (p[3] < 0)
             tag_pose_vecs[i, :] = p
         print("p0 ready")
         self.p0 = np.mean(tag_pose_vecs[:, :], axis=0)
+        print("p0", self.p0)
         # 取均值
         self.dpLast = np.zeros([6])
         self.dp = np.zeros([12])
@@ -153,10 +154,13 @@ class GetFingerForce(object):
                 continue
             p = self.detect.detect(color_image=img)
             # 平移分量 + 旋转分量
+            # 两个欧拉角都为正数，Final Vector (in: mm): [ -1.91192365   0.54926175  25.51828007 169.97963501  -7.71564783 1.90439425]
             # self.GrayQue.put(gray)
         p[3] = p[3] + 360 * (p[3] < 0)
         # 将角度转换为正数
         dp = p - self.p0
+        # print("dp", dp)
+        # p0 [ 3.11083049e-01  2.33430624e-01  2.62575990e+01  1.74294899e+02 -1.32184226e+00  3.58976876e+02]
         # self.p0 = np.mean(tag_pose_vecs[:, :], axis=0)
         # P0是均值，初始化GetFingerForce时计算得到
 
@@ -164,6 +168,7 @@ class GetFingerForce(object):
         yPredict[0] = 6 * dp[0]
         yPredict[1] = 6 * dp[1]
         yPredict[-1] = 0.01487 * dp[-1]
+        # print("yPredict", yPredict)
         # x,y 平移 + z 轴偏转
 
         # Another Finger
@@ -202,9 +207,12 @@ if __name__ == '__main__':
             # print(return_)
 
             if return_ is not None:
-                yPredict, Pose, = return_
+                # print("return_", return_)
+                yPredict, Pose = return_[:2] # 修改
+                # print("yPredict, Pose,", yPredict, Pose) 
                 # dp的x y偏移和z轴旋转乘以一个系数   以及二维码位姿偏移dp
                 readings.append(yPredict)
+                # readings.append(Pose[:3] * 1000)
                 forces = np.array(readings).T
                 # readings 包含了连续时间点的力和力矩的测量值，转置后的 forces 数组可以让你轻松地访问所有时间点的特定一种力或力矩的值
 
@@ -213,6 +221,7 @@ if __name__ == '__main__':
                 # Plot the real-time data
                 ax.clear()
                 for j, force_direction in enumerate(['x', 'y', 'z', 'mx', 'my', 'mz']):
+                # for j, force_direction in enumerate(['x', 'y', 'z']):
                     if j > 2:
                         forces[j] = forces[j] * 10
                     ax.plot(np.arange(i), forces[j], label=force_direction)

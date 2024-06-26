@@ -120,8 +120,15 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
                       FingerForceReceiveQue=mp.Queue,
                       stopQue=mp.Queue,
                       ImpedanceControl=False, ImpedanceControl3=False, ):
-    ForceReceive = FingerForceReceiveQue.get(timeout=10)
+    
+    # ForceReceive = FingerForceReceiveQue.get(timeout=10)
+
+
+    # FingerForceReceiveQue.put(np.concatenate((OffsetForce, ArucoPose), axis=0))
     # 通过将其定义为一个多进程队列，可以确保数据的安全传递和同步访问，避免多个进程同时访问数据时出现竞争条件
+
+
+    Force_init = np.zeros(1)
 
     FingerForceRecord = np.zeros((0, 6))
     SGVelRecord = np.zeros((0, 6))
@@ -142,16 +149,21 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
     now_pose[2] = now_pose[2] + 0.1
 
     robot.Move(now_pose[0:3], tcp)
+
+    
     # 移动到哪个位置
     # tcp 移动时的转角
 
     # -0.016139876756485903, -0.8102090933335253, 0.3722249608780756
-    Q_joint = [1.6538190841674805,
-               -0.9526007932475586,
-               1.6189902464496058,
-               4.046006842250488,
-               4.710605621337891,
-               2.4786343574523926]
+    # Q_joint = [1.6538190841674805,
+    #            -0.9526007932475586,
+    #            1.6189902464496058,
+    #            4.046006842250488,
+    #            4.710605621337891,
+    #            2.4786343574523926]
+    Q_joint = [1.6454973220825195, -1.6632138691344203, 2.2385829130755823, -2.71738400081777, 4.661285877227783, 3.1862950325012207]
+    
+    # Q_joint = [1.49882173538208, -1.2290848058513184, 2.156137768422262, -2.5010653934874476, 4.708913803100586, 0.02007436752319336]
     # 方法将这些目标位置或角度应用于机器人的相应关节，从而控制机器人的整体姿态和位置。
     # 1. 基座旋转（Base rotation） - 控制机器人基座的旋转。
     # 2. 肩部倾斜（Shoulder tilt） - 控制机器人的“肩部”部分的倾斜。
@@ -166,21 +178,24 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
     init_pose[1] = init_pose[1]
 
     robot.Move(init_pose, tcp)
-    # 是否会有动作还取决于 tcp 参数，即目标姿态或工具中心点方向。如果 tcp 指定的方向与机器人当前的末端执行器方向不同，那么机器人可能会进行旋转或调整姿态以匹配新的方向指示，即使它的位置坐标没有变化。
-    init_pose[2] = init_pose[2] - 0.1 - 0.003
-    # #
-    robot.Move(init_pose, tcp)
-    init_pose[1] = init_pose[1] - 0.0045
+    # # 目标位置以及角度 是否会有动作还取决于 tcp 参数，即目标姿态或工具中心点方向。如果 tcp 指定的方向与机器人当前的末端执行器方向不同，那么机器人可能会进行旋转或调整姿态以匹配新的方向指示，即使它的位置坐标没有变化。
 
-    robot.Move(init_pose, tcp)
+
+    # init_pose[2] = init_pose[2] - 0.1 - 0.003
+    # # #
+    # robot.Move(init_pose, tcp)
+    # init_pose[1] = init_pose[1] - 0.0045
+
+    # robot.Move(init_pose, tcp)
 
     time.sleep(1)
     ForceReceive = FingerForceReceiveQue.get(timeout=0.1)
     # mp.Queue 队列是多进程中的队列，用于在不同的进程或线程之间传递数据。
     # 在这种情况下，它用于从 FingerForceReceiveQue 队列中获取数据，如果队列为空，则会阻塞等待数据。
     # 如果队列中没有数据，则会抛出 queue.Empty 异常。
-    print("ForceReceive", ForceReceive)
-    offset_y = abs(ForceReceive[7]) * 3.5
+    print("ForceReceive in RockControl", ForceReceive)
+    offset_y = abs(ForceReceive[7]) * 3.5 
+    # 指尖偏移 = 二维码y方向的偏移量 * 3.5（dp[1]） * ((22.37+56.24)/22.37=3.51)
 
     tcp = rpy2rot_vec((-np.pi, 0, np.arctan(offset_y / 0.085)))
     robot.Move(init_pose, tcp)
@@ -220,6 +235,9 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
     for m in range(6):
         timeLast[m] = time.time()
     first_loop = True
+
+    print("RockControlUsingFinger start")
+
     while stopQue.qsize() is 0:
         #  队列的大小为 0 
         try:
@@ -235,16 +253,22 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
         r = Rt.from_rotvec(pose[3:6])
         rpy = r.as_euler('xyz', degrees=False)
         theta = rpy[-1]
+        # 机器人末端的欧拉角
 
         ArucoPose = ForceReceive[6:]
+        # 相机坐标系下的二维码姿态
         # ForceReceive FingerForceReceiveQue获得力 and 二维码姿态
         MachinePosition = pose[0:3]
         Position = MachinePosition - InitPosition
+        # position为相对初始position的变化
         print(ArucoPose[0:2])
         ArucoPose[1] = -ArucoPose[1]
+        # 为何换成相反数？
         ArucoPose[0:2] = np.array([[np.cos(theta), -np.sin(theta)],
                                    [np.sin(theta), np.cos(theta)]]) @ ArucoPose[0:2]
+        # 相机坐标系换到机器人坐标系
         Finger_tail_end = Position[0:2] + ArucoPose[0:2] * 3.5
+        # 为何乘以3.5
         FingerForce[1] = -FingerForce[1]
         FingerForce[0:2] = np.array([[np.cos(theta), -np.sin(theta)],
                                      [np.sin(theta), np.cos(theta)]]) @ FingerForce[0:2]
@@ -261,13 +285,15 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
                 b = 0
             return_ = cal_nearestPoint_bezier(finger_points, finger_pose[0:2])
             if not return_:
-                stopQue.put('1')
+                stopQue.put('1') 
                 continue
             PositionDesire, normal_x, normal_y, tangential_x, tangential_y = return_
             FingerForce_normal_projection = FingerForce[0] * normal_x + FingerForce[1] * normal_y
+            # fingerforce就是ypredict，且转换到了机器人坐标系下
             if first_loop is True:
                 first_loop = False
                 Force_init = FingerForce_normal_projection
+                # 初始形变产生的力
             Force_normal_projection_refer = Force_init
             v_normal = b * (FingerForce_normal_projection - Force_normal_projection_refer)
             v_tangent = 0.005
@@ -297,7 +323,14 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
         # SGVel[1] = -SGVel[1]
         gap = 0.0001
         SGVel[:2] = np.where(np.abs(SGVel[:2]) < gap, 0, np.sign(SGVel[:2]) * (np.abs(SGVel[:2])))
+        # SGVel[:2] = np.where(np.abs(SGVel[:2]) < gap, 0, SGVel[:2])
+
         SGVel[-1] = np.where(np.abs(SGVel[-1]) < gap * 10, 0, np.sign(SGVel[-1]) * (np.abs(SGVel[-1])))
+        # 使用 np.where 函数对 SGVel 的前两个分量（通常是 x 和 y 方向的线速度）进行处理：
+        # np.abs(SGVel[:2]) < gap：检查速度分量的绝对值是否小于阈值 gap。
+        # 如果条件为真（即速度分量接近于零），则将该分量设置为 0。
+        # 否则，保持原始值不变。使用 np.sign(SGVel[:2]) * (np.abs(SGVel[:2])) 确保速度的符号和大小不变。
+
 
         # print(SGVel[0], SGVel[1], SGVel[2], SGVel[3], SGVel[4], SGVel[5])
         robot.Speed(SGVel[0], SGVel[1], SGVel[2], SGVel[3], SGVel[4], SGVel[5], )
