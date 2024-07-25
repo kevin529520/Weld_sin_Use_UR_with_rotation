@@ -1,4 +1,4 @@
-opencv=4.6.6
+opencv==4.6.6
 python=3.11
 pyyaml
 scipy

@@ -48,8 +48,8 @@ def GetFingerForceProcess(dataDir, InitTime, FingerForceReceiveQue=mp.Queue(),
         OffsetForce = OriginForce - FingerInitMean
         # print("OffsetForce", OffsetForce)
 
-        if abs(OffsetForce[0]) > 15 or abs(OffsetForce[1]) > 15 or abs(OffsetForce[-1]) > 10:
-        # if abs(OffsetForce[0]) > 5 or abs(OffsetForce[1]) > 5 or abs(OffsetForce[-1]) > 5:
+        # if abs(OffsetForce[0]) > 15 or abs(OffsetForce[1]) > 15 or abs(OffsetForce[-1]) > 10:
+        if abs(OffsetForce[0]) > 5 or abs(OffsetForce[1]) > 5 or abs(OffsetForce[-1]) > 5:
             print("OffsetForce_big", OffsetForce)
             FingerForceReceiveQue.put(np.concatenate((OffsetForce, ArucoPose), axis=0))
             print("GetFingerForceProcess Fger Force over above limit")
@@ -59,6 +59,7 @@ def GetFingerForceProcess(dataDir, InitTime, FingerForceReceiveQue=mp.Queue(),
             FingerForceReceiveQue.get()
             # print("FingerForceReceiveQue.qsize() > 1")
         FingerForceReceiveQue.put(np.concatenate((OffsetForce, ArucoPose), axis=0))
+        # print("fingerForceReceiveQue_put", OffsetForce, ArucoPose)
 
         RecordFingerForceTime = np.append(RecordFingerForceTime, time.time() - InitTime)
         OffsetForceRecord = np.concatenate((OffsetForceRecord, OffsetForce.reshape(1, 6)), axis=0)

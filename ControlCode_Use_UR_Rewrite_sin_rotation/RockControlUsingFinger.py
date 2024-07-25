@@ -188,7 +188,7 @@ def AdmittanceControl(dataDir, InitTime, gun_path_spline, gun_points, finger_poi
 
     # robot.Move(init_pose, tcp)
 
-    time.sleep(1)
+    time.sleep(10)
     ForceReceive = FingerForceReceiveQue.get(timeout=0.1)
     # mp.Queue 队列是多进程中的队列，用于在不同的进程或线程之间传递数据。
     # 在这种情况下，它用于从 FingerForceReceiveQue 队列中获取数据，如果队列为空，则会阻塞等待数据。
